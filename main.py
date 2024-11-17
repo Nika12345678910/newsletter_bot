@@ -1,19 +1,22 @@
 import logging, asyncio
+
 from aiogram import Bot, Dispatcher
+
 from config_data.config import load_config
 from handlers.user import user_router
 from handlers.admin import admin_router
 from middleware.outer import OuterMiddlewareAdmin, OuterMiddlewareSession
 from database.engine import session_maker, create_db, drop_db
+from FSM.fsm import storage
 
 
 logger = logging.getLogger(__name__)
 
 
 async def startup(bot):
-    logger.info("Starting bot")
-    await drop_db
-    await create_db
+    await drop_db()
+    await create_db()
+
 
 
 async def main():
@@ -27,7 +30,9 @@ async def main():
     bot = Bot(token=config.tg_bot.token)
     admin_ids = list(config.tg_bot.admin_ids)
     bot.admin_ids = admin_ids
-    dp = Dispatcher()#storage for db
+    dp = Dispatcher(storage=storage)
+
+    logger.info("Starting bot")
 
     dp.startup.register(startup)
 
@@ -35,7 +40,7 @@ async def main():
     dp.include_router(admin_router)
 
     admin_router.message.outer_middleware(OuterMiddlewareAdmin(admin_ids=admin_ids))
-    dp.update.middleware(DataBaseSession(session_maker))
+    dp.update.middleware(OuterMiddlewareSession(session_maker))
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)

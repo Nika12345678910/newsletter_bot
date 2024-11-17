@@ -30,7 +30,7 @@ class Config:
 
 def load_config(path: str|None = None):
     env = Env()
-    Env.read_env(path)
+    env.read_env(path)
     return Config(
         tg_bot=TgBot(
             token=env("BOT_TOKEN"),

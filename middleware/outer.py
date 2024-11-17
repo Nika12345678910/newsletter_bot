@@ -1,7 +1,11 @@
 from typing import Any, Awaitable, Callable, Dict
+
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, User
+
 from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from database.engine import session_maker
 
 
 class OuterMiddlewareAdmin(BaseMiddleware):
@@ -21,7 +25,7 @@ class OuterMiddlewareAdmin(BaseMiddleware):
         return await handler(event, data)
 
 
-'''class OuterMiddlewareSession(BaseMiddleware):
+class OuterMiddlewareSession(BaseMiddleware):
     def __init__(self, session_pool: session_maker):
         self.session_pool = session_pool
 
@@ -33,4 +37,4 @@ class OuterMiddlewareAdmin(BaseMiddleware):
 
         async with self.session_pool() as session:
             data['session'] = session
-            return await handler(event, data)'''
+            return await handler(event, data)
