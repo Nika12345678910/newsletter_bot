@@ -8,7 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lexicon.lexicon_ru import LEXICON, btns
 from FSM.fsm import UserDataFSM
-from database.query_orm import add_user_orm, get_user_orm, get_rooms_orm
+from database.query_orm import (add_user_orm,
+                                get_user_orm,
+                                get_rooms_orm,
+                                get_room_orm)
 from keyboard.inline import get_callback_btns
 
 
@@ -46,13 +49,11 @@ async def add_first_name(message: Message, state: FSMContext):
 
 @user_router.message(F.text, UserDataFSM.last_name)
 async def add_last_name(message: Message, state: FSMContext, session: AsyncSession):
-    print(f'\n\n\n49')
     if len(message.text)>20:
         await message.answer(text=LEXICON["error_last_name"])
         return
     rooms = await get_rooms_orm(session)
     btns = {room.room: str(room.id) for room in rooms}
-    print(f'\n\n\n{rooms}')
     await state.update_data(last_name=message.text)
     await message.answer(text=LEXICON["room"], reply_markup=get_callback_btns(btns=btns))
     await state.set_state(UserDataFSM.id_room)
@@ -78,3 +79,29 @@ async def add_room(callback: CallbackQuery, session: AsyncSession, state: FSMCon
         )
         await callback.answer()
         await state.clear()
+
+
+@user_router.message(UserDataFSM.first_name)
+async def add_first_name2(messagge: Message, state: FSMContext):
+    await messagge.answer(text=LEXICON["error_first_name"])
+
+
+@user_router.message(UserDataFSM.last_name)
+async def add_last_name2(messagge: Message, state: FSMContext):
+    await messagge.answer(text=LEXICON["error_last_name"])
+
+
+@user_router.message(UserDataFSM.id_room)
+async def add_room2(messagge: Message, state: FSMContext):
+    await messagge.answer(text=LEXICON["error_room"])
+
+
+#Просмотр профиля
+@user_router.callback_query(F.data == "profile")
+async def profile(callback: CallbackQuery, session: AsyncSession):
+    user_data = await get_user_orm(session, int(callback.from_user.id))
+    user_data = user_data[0]
+    print(f'\n\n\n{type(user_data)}\n{user_data}')
+    room = await get_room_orm(session, int(user_data.id_room))
+    profile = f'Имя: {user_data.first_name}\nФамилия: {user_data.last_name}\nКомната: {room[0].room}'
+    await callback.message.answer(text=profile)
