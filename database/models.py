@@ -1,4 +1,4 @@
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, BigInteger, func, Date
+from sqlalchemy import DateTime, ForeignKey, String, func, Date, Time
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -11,7 +11,7 @@ class Rooms(Base):
     __tablename__ = "rooms"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    room: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
+    number: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
 
 
 class Users(Base):
@@ -23,15 +23,15 @@ class Users(Base):
     last_name: Mapped[str] = mapped_column(String(10))
     id_room: Mapped[int] = mapped_column(ForeignKey(column="rooms.id", ondelete="CASCADE"))
 
-    room: Mapped["Rooms"] = relationship(backref="users")
+    number: Mapped["Rooms"] = relationship(backref="users")
 
 
 class Schedule(Base):
     __tablename__ = "schedule"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    time: Mapped[DateTime] = mapped_column(DateTime, nullable=False)
-    date: Mapped[Date] = mapped_column(Date, nullable=False, unique=True)
+    time: Mapped[Time] = mapped_column(Time, nullable=False)
+    date: Mapped[Date] = mapped_column(Date, nullable=False)
     id_room: Mapped[int] = mapped_column(ForeignKey(column="rooms.id", ondelete="CASCADE"), nullable=False)
 
-    room: Mapped["Rooms"] = relationship(backref="schedule")
+    number: Mapped["Rooms"] = relationship(backref="schedule")

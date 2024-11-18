@@ -18,7 +18,13 @@ async def add_user_orm(session: AsyncSession, data: dict):
 
 
 async def get_user_orm(session: AsyncSession, id_chat: int):
-    query = select(Users).where(Users.id_chat==id_chat)
+    query = select(Users).where(Users.id_chat == id_chat)
+    result = await session.execute(query)
+    return result.scalar()
+
+
+async def get_id_chats_orm(session: AsyncSession):
+    query = select(Users.id_chat)
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -29,7 +35,7 @@ async def add_rooms_orm(session: AsyncSession, data: list):
     result = await session.execute(query)
     if result.first():
         return
-    session.add_all([Rooms(room=room) for room in data])
+    session.add_all([Rooms(number=number) for number in data])
     await session.commit()
 
 
@@ -42,7 +48,15 @@ async def get_rooms_orm(session: AsyncSession):
 async def get_room_orm(session: AsyncSession, id_room: int):
     query = select(Rooms).where(Rooms.id == id_room)
     result = await session.execute(query)
-    return result.scalars().all()
+    return result.scalar()
 
 
 #Schedule
+async def add_schedule_orm(session: AsyncSession, data: dict):
+    schedule = Schedule(
+        time=data["time"],
+        date=data["date"],
+        id_room=data["id_room"]
+    )
+    session.add(schedule)
+    await session.commit()
