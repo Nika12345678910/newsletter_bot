@@ -11,12 +11,17 @@ from datetime import time, date
 from lexicon.lexicon_ru import LEXICON, btns, format_schedule, check_schedule_kb
 from keyboard.reply import create_keyboard
 from keyboard.inline import get_callback_btns
-from FSM.fsm import AddScheduleFSM
+from FSM.fsm import AddScheduleFSM, AddFloorFSM
 from filter.filter import DateFilter, TimeFilter
 from database.query_orm import (get_rooms_orm,
                                 add_schedule_orm,
                                 get_room_orm,
-                                get_id_chats_orm)
+                                get_id_chats_orm,
+                                get_user_orm,
+                                get_ids_chat_headmen_orm,
+                                add_floor_orm,
+                                get_id_floor_orm,
+                                add_rooms_orm)
 
 
 admin_router = Router()
@@ -25,12 +30,52 @@ admin_kb = create_keyboard(btns["possibilities_admin"],
                            placeholder=btns["placeholder_admin_kb"])
 
 
-@admin_router.message(Command(commands=['admin']))
-async def command_admin(message: Message):
-    await message.answer(text=f'{LEXICON["admin"]}, {message.from_user.first_name}',
-                         reply_markup=admin_kb)
+@admin_router.message(Command(commands=['admin']), StateFilter(default_state))
+async def command_admin(message: Message, session: AsyncSession, state: FSMContext):
+    if await get_user_orm(session, int(message.from_user.id)):
+        await message.answer(text=f'{LEXICON["admin"]}, {message.from_user.first_name}',
+                             reply_markup=admin_kb)
+        return
+
+    if message.from_user.id not in await get_ids_chat_headmen_orm(session):
+        await message.answer(text=LEXICON["add_floor"])
+        await state.set_state(AddFloorFSM.floor)
+        return
+
+    await message.answer(text=LEXICON["registration_admin"],
+                         reply_markup=get_callback_btns(btns=btns["registation"]))
 
 
+#Добавление этажа и комнат
+@admin_router.message(AddFloorFSM.floor, F.text.isdigit())
+async def add_floor(message: Message, state: FSMContext):
+    await state.update_data(floor=int(message.text))
+    await message.answer(text=LEXICON["add_numbers_rooms"])
+    await state.set_state(AddFloorFSM.numbers_rooms)
+
+
+@admin_router.message(AddFloorFSM.numbers_rooms, F.text)
+async def add_numbers_rooms(message: Message, state: FSMContext, session: AsyncSession):
+    rooms = [str(i) for i in message.text.replace(',', '').split()]
+    await state.update_data(numbers_rooms=rooms)
+    data = await state.get_data()
+
+    data_floor_table = {
+        "number_floor": int(data["floor"]),
+        "id_chat_headmen": message.from_user.id
+    }
+    await add_floor_orm(session, data_floor_table)
+
+    id_floor = await get_id_floor_orm(session, int(data["floor"]))
+    await add_rooms_orm(session, id_floor, data["numbers_rooms"],)
+
+    await state.clear()
+    await message.answer(text=LEXICON["add_data_headmen"])
+
+
+
+
+#Создание расписания
 @admin_router.message(F.text == "Создание расписания", StateFilter(default_state))
 async def create_schedule(message: Message, state: FSMContext):
     await message.answer(text=LEXICON["date"],
@@ -92,6 +137,7 @@ async def add_room2(message: Message):
     await message.answer(text=LEXICON["error_room"])
 
 
+#Публикация расписания
 @admin_router.callback_query(F.data.startswith("confirm_"))
 async def public_schedule(callback: CallbackQuery, session: AsyncSession, bot: Bot):
     data = callback.data.split('_')

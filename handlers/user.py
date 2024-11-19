@@ -63,9 +63,9 @@ async def add_room(callback: CallbackQuery, session: AsyncSession, state: FSMCon
 
     try:
         await add_user_orm(session, data)
-        await callback.message.answer(text=LEXICON["registration_close"],
-                                      reply_markup=get_callback_btns(btns=btns["possibilities_user"]))
-        await callback.answer()
+        await callback.answer(text=LEXICON["registration_close"])
+        await callback.message.answer(text=LEXICON["possibilities_user"],
+                             reply_markup=get_callback_btns(btns=btns["possibilities_user"]))
         await state.clear()
     except Exception as e:
         await callback.message.answer(
@@ -96,6 +96,10 @@ async def add_room2(messagge: Message, state: FSMContext):
 async def profile(callback: CallbackQuery, session: AsyncSession):
     user_data = await get_user_orm(session, int(callback.from_user.id))
     room = await get_room_orm(session, int(user_data.id_room))
-    #room = room[0]
     profile = format_profile(user_data.first_name, user_data.last_name, room.number)
     await callback.message.answer(text=profile)
+
+
+'''#Просмотр расписания
+@user_router.callback_query(F.data == "view schedule")
+async def view_schedule(callback: CallbackQuery, session: AsyncSession):'''

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 async def startup(bot):
-    #await drop_db()
+    await drop_db()
     await create_db()
 
 

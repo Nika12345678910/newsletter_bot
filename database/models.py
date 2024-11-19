@@ -12,6 +12,8 @@ class Rooms(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     number: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
+    id_floor: Mapped[int] = mapped_column(nullable=False)
+
 
 
 class Users(Base):
@@ -21,9 +23,7 @@ class Users(Base):
     id_chat: Mapped[int] = mapped_column(unique=True, nullable=False)
     first_name: Mapped[str] = mapped_column(String(10))
     last_name: Mapped[str] = mapped_column(String(10))
-    id_room: Mapped[int] = mapped_column(ForeignKey(column="rooms.id", ondelete="CASCADE"))
-
-    number: Mapped["Rooms"] = relationship(backref="users")
+    id_room: Mapped[int] = mapped_column(nullable=False)
 
 
 class Schedule(Base):
@@ -32,6 +32,12 @@ class Schedule(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     time: Mapped[Time] = mapped_column(Time, nullable=False)
     date: Mapped[Date] = mapped_column(Date, nullable=False)
-    id_room: Mapped[int] = mapped_column(ForeignKey(column="rooms.id", ondelete="CASCADE"), nullable=False)
+    id_room: Mapped[int] = mapped_column(nullable=False)
 
-    number: Mapped["Rooms"] = relationship(backref="schedule")
+
+class Floors(Base):
+    __tablename__ = 'floors'
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    number_floor: Mapped[int] = mapped_column(nullable=False, unique=True)
+    id_chat_headmen: Mapped[int] = mapped_column(unique=True, nullable=False)
