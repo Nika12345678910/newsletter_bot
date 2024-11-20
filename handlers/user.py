@@ -11,9 +11,10 @@ from FSM.fsm import UserDataFSM
 from database.query_orm import (add_user_orm,
                                 get_user_orm,
                                 get_rooms_orm,
-                                get_room_orm)
+                                get_room_orm,
+                                get_rooms_row_orm)
 from keyboard.inline import get_callback_btns
-from filter.filter import NameFilter
+from filter.filter import NameFilter, RoomFilter
 
 
 user_router = Router()
@@ -48,31 +49,33 @@ async def add_first_name(message: Message, state: FSMContext):
 @user_router.message(NameFilter(), UserDataFSM.last_name)
 async def add_last_name(message: Message, state: FSMContext, session: AsyncSession):
     rooms = await get_rooms_orm(session)
-    btns = {room.number: str(room.id) for room in rooms}
+
     await state.update_data(last_name=message.text)
-    await message.answer(text=LEXICON["room"], reply_markup=get_callback_btns(btns=btns))
-    await state.set_state(UserDataFSM.id_room)
+    await message.answer(text=f'{LEXICON["room"]}: {", ".join(rooms)}')
+    await state.set_state(UserDataFSM.room)
 
 
-@user_router.callback_query(UserDataFSM.id_room)
-async def add_room(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
-    await state.update_data(id_room=int(callback.data))
+@user_router.message(UserDataFSM.room, RoomFilter())
+async def add_room(message: Message, session: AsyncSession, state: FSMContext):
+    await state.update_data(room=int(message.text))
 
     data = await state.get_data()
-    data["id_chat"]=callback.from_user.id
+    print(await get_rooms_orm(session))
+    rooms = {str(room.number): room.id for room in await get_rooms_row_orm(session)}
+    data["id_room"] = rooms[message.text]
+    data["id_chat"] = message.from_user.id
 
     try:
         await add_user_orm(session, data)
-        await callback.answer(text=LEXICON["registration_close"])
-        await callback.message.answer(text=LEXICON["possibilities_user"],
-                             reply_markup=get_callback_btns(btns=btns["possibilities_user"]))
+        await message.answer(text=LEXICON["registration_close"])
+        await message.answer(text=LEXICON["possibilities_user"],
+                                      reply_markup=get_callback_btns(btns=btns["possibilities_user"]))
         await state.clear()
     except Exception as e:
-        await callback.message.answer(
+        await message.answer(
             f"Ошибка: \n{str(e)}\nЧто-то пошло не так при добавлении данных пользователя в БД",
             reply_markup=get_callback_btns(btns=btns["registation"]),
         )
-        await callback.answer()
         await state.clear()
 
 
@@ -86,7 +89,7 @@ async def add_last_name2(messagge: Message, state: FSMContext):
     await messagge.answer(text=LEXICON["error_last_name"])
 
 
-@user_router.message(UserDataFSM.id_room)
+@user_router.message(UserDataFSM.room)
 async def add_room2(messagge: Message, state: FSMContext):
     await messagge.answer(text=LEXICON["error_room"])
 
@@ -95,11 +98,13 @@ async def add_room2(messagge: Message, state: FSMContext):
 @user_router.callback_query(F.data == "profile")
 async def profile(callback: CallbackQuery, session: AsyncSession):
     user_data = await get_user_orm(session, int(callback.from_user.id))
-    room = await get_room_orm(session, int(user_data.id_room))
+    room = await get_room_orm(session, user_data.id_room)
     profile = format_profile(user_data.first_name, user_data.last_name, room.number)
     await callback.message.answer(text=profile)
 
 
-'''#Просмотр расписания
+#Просмотр расписания
 @user_router.callback_query(F.data == "view schedule")
-async def view_schedule(callback: CallbackQuery, session: AsyncSession):'''
+async def view_schedule(callback: CallbackQuery, session: AsyncSession):
+    await callback.message.answer(text=LEXICON["view_schedule"])
+    await callback.answer()

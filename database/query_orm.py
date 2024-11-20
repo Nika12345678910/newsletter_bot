@@ -40,7 +40,7 @@ async def add_rooms_orm(session: AsyncSession, id_floor: int, rooms: list):
 
 
 async def get_rooms_orm(session: AsyncSession):
-    query = select(Rooms)
+    query = select(Rooms.number)
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -49,6 +49,12 @@ async def get_room_orm(session: AsyncSession, id_room: int):
     query = select(Rooms).where(Rooms.id == id_room)
     result = await session.execute(query)
     return result.scalar()
+
+
+async def get_rooms_row_orm(session: AsyncSession):
+    query = select(Rooms)
+    result = await session.execute(query)
+    return result.scalars().all()
 
 
 #Schedule

@@ -8,7 +8,7 @@ storage = MemoryStorage()
 class UserDataFSM(StatesGroup):
     first_name = State()
     last_name = State()
-    id_room = State()
+    room = State()
 
 
 class AddScheduleFSM(StatesGroup):

@@ -12,7 +12,7 @@ from lexicon.lexicon_ru import LEXICON, btns, format_schedule, check_schedule_kb
 from keyboard.reply import create_keyboard
 from keyboard.inline import get_callback_btns
 from FSM.fsm import AddScheduleFSM, AddFloorFSM
-from filter.filter import DateFilter, TimeFilter
+from filter.filter import DateFilter, TimeFilter, NumbersRoomsFilter
 from database.query_orm import (get_rooms_orm,
                                 add_schedule_orm,
                                 get_room_orm,
@@ -54,9 +54,9 @@ async def add_floor(message: Message, state: FSMContext):
     await state.set_state(AddFloorFSM.numbers_rooms)
 
 
-@admin_router.message(AddFloorFSM.numbers_rooms, F.text)
+@admin_router.message(NumbersRoomsFilter(), AddFloorFSM.numbers_rooms, F.text)
 async def add_numbers_rooms(message: Message, state: FSMContext, session: AsyncSession):
-    rooms = [str(i) for i in message.text.replace(',', '').split()]
+    rooms = [str(i) for i in message.text.replace(' ', ',').replace(',,', ',').split(',')]
     await state.update_data(numbers_rooms=rooms)
     data = await state.get_data()
 
@@ -73,13 +73,23 @@ async def add_numbers_rooms(message: Message, state: FSMContext, session: AsyncS
     await message.answer(text=LEXICON["add_data_headmen"])
 
 
+@admin_router.message(AddFloorFSM.floor)
+async def add_floor2(message: Message):
+    await message.answer(text=LEXICON["error_floor"])
+
+
+@admin_router.message(AddFloorFSM.numbers_rooms)
+async def add_floor2(message: Message):
+    await message.answer(text=LEXICON["error_numbers_rooms"])
 
 
 #Создание расписания
 @admin_router.message(F.text == "Создание расписания", StateFilter(default_state))
 async def create_schedule(message: Message, state: FSMContext):
-    await message.answer(text=LEXICON["date"],
+    await message.answer(text=LEXICON["start_create_schedule"],
                          reply_markup=ReplyKeyboardRemove())
+    await message.answer(text=LEXICON["date"],
+                         reply_markup=get_callback_btns(btns=btns["cancel"]))
     await state.set_state(AddScheduleFSM.date)
 
 
@@ -89,21 +99,21 @@ async def add_date(message: Message, state: FSMContext):
     var_date = date(int(soo[0]), int(soo[1]), int(soo[2]))
 
     await state.update_data(date=var_date)
-    await message.answer(text=LEXICON["time"])
+    await message.answer(text=LEXICON["time"],
+                         reply_markup=get_callback_btns(btns=btns["cancel"]))
     await state.set_state(AddScheduleFSM.time)
 
 
 @admin_router.message(TimeFilter(), AddScheduleFSM.time)
 async def add_time(message: Message, state: FSMContext, session: AsyncSession):
     rooms = await get_rooms_orm(session)
-    btns = {room.number: str(room.id) for room in rooms}
 
     soo = message.text.split(':')
     var_time = time(int(soo[0]), int(soo[1]), 0)
 
     await state.update_data(time=var_time)
-    await message.answer(text=LEXICON["room"],
-                         reply_markup=get_callback_btns(btns=btns))
+    await message.answer(text=f'{LEXICON["room"]}: {", ".join(rooms)}',
+                         reply_markup=get_callback_btns(btns=btns["cancel"]))
     await state.set_state(AddScheduleFSM.id_room)
 
 
@@ -169,3 +179,23 @@ async def public_schedule(callback: CallbackQuery, session: AsyncSession, bot: B
             f"Ошибка: \n{str(e)}\nЧто-то пошло не так при добавлении расписания в БД",
             reply_markup=admin_kb)
         await callback.answer()
+
+
+#Изменение расписания
+@admin_router.callback_query(F.data.startswith("change_"))
+async def change_schedule(callback: CallbackQuery):
+    await callback.message.answer(text=LEXICON["date"],
+                         reply_markup=ReplyKeyboardRemove())
+    await state.set_state(AddScheduleFSM.date)
+    await callback.answer(text=LEXICON["change_schedule"])
+
+
+#Отмена действий по создания расписания
+@admin_router.callback_query(F.data == "cancel")
+async def cancel_move(callback: CallbackQuery):
+    current_state = await state.get_state()
+    if current_state is None:
+        return
+    await callback.answer()
+    await state.clear()
+    await callback.message.answer("Действия отменены", reply_markup=admin_kb)

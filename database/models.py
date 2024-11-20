@@ -11,7 +11,7 @@ class Rooms(Base):
     __tablename__ = "rooms"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    number: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
+    number: Mapped[int] = mapped_column(String(10), nullable=False, unique=True)
     id_floor: Mapped[int] = mapped_column(nullable=False)
 
 
