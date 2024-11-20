@@ -21,7 +21,8 @@ from database.query_orm import (get_rooms_orm,
                                 get_ids_chat_headmen_orm,
                                 add_floor_orm,
                                 get_id_floor_orm,
-                                add_rooms_orm)
+                                add_rooms_orm,
+                                get_rooms_row_orm)
 
 
 admin_router = Router()
@@ -114,20 +115,19 @@ async def add_time(message: Message, state: FSMContext, session: AsyncSession):
     await state.update_data(time=var_time)
     await message.answer(text=f'{LEXICON["room"]}: {", ".join(rooms)}',
                          reply_markup=get_callback_btns(btns=btns["cancel"]))
-    await state.set_state(AddScheduleFSM.id_room)
+    await state.set_state(AddScheduleFSM.room)
 
 
-@admin_router.callback_query(AddScheduleFSM.id_room)
-async def add_room(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
-    await state.update_data(id_room=int(callback.data))
+@admin_router.message(AddScheduleFSM.room)
+async def add_room(message: Message, session: AsyncSession, state: FSMContext):
+    await state.update_data(room=int(message.text))
 
     data = await state.get_data()
-    room = await get_room_orm(session, int(callback.data))
-    schedule = format_schedule(data["date"], data["time"], room.number)
+    schedule = format_schedule(data["date"], data["time"], message.text)
 
     btns = check_schedule_kb(data)
 
-    await callback.message.answer(text=f'{LEXICON["check_schedule"]}\n{schedule}',
+    await message.answer(text=f'{LEXICON["check_schedule"]}\n{schedule}',
                                   reply_markup=get_callback_btns(btns=btns))
     await state.clear()
 
@@ -142,7 +142,7 @@ async def add_time2(message: Message):
     await message.answer(text=LEXICON["error_time"])
 
 
-@admin_router.message(AddScheduleFSM.id_room)
+@admin_router.message(AddScheduleFSM.room)
 async def add_room2(message: Message):
     await message.answer(text=LEXICON["error_room"])
 
@@ -152,18 +152,21 @@ async def add_room2(message: Message):
 async def public_schedule(callback: CallbackQuery, session: AsyncSession, bot: Bot):
     data = callback.data.split('_')
 
-    soo = data[1].split('-')
-    var_date = date(int(soo[0]), int(soo[1]), int(soo[2]))
+    #дата уборки
+    input_date = data[1].split('-')
+    var_date = date(int(input_date[0]), int(input_date[1]), int(input_date[2]))
 
-    soo = data[2].split(':')
-    var_time = time(int(soo[0]), int(soo[1]), 0)
+    #время уборки
+    input_time = data[2].split(':')
+    var_time = time(int(input_time[0]), int(input_time[1]), 0)
 
+    schedule = format_schedule(data[1], data[2], data[3])
+
+    ids_room = {str(room.number): room.id for room in await get_rooms_row_orm(session)}
     data = {"date": var_date,
             "time": var_time,
-            "id_room": int(data[3])}
+            "id_room": ids_room[data[3]]} #id комнаты, которая убирается
 
-    room = await get_room_orm(session, data["id_room"])
-    schedule = format_schedule(data["date"], data["time"], room.number)
 
     try:
         await add_schedule_orm(session, data)
@@ -192,7 +195,7 @@ async def change_schedule(callback: CallbackQuery):
 
 #Отмена действий по создания расписания
 @admin_router.callback_query(F.data == "cancel")
-async def cancel_move(callback: CallbackQuery):
+async def cancel_move(callback: CallbackQuery, state: FSMContext):
     current_state = await state.get_state()
     if current_state is None:
         return

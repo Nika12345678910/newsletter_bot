@@ -14,7 +14,7 @@ class UserDataFSM(StatesGroup):
 class AddScheduleFSM(StatesGroup):
     date = State()
     time = State()
-    id_room = State()
+    room = State()
 
 
 class AddFloorFSM(StatesGroup):
