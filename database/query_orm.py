@@ -1,7 +1,11 @@
 import logging
+
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+
+from datetime import date
+
 from database.models import Users, Rooms, Schedule, Floors
 
 
@@ -57,6 +61,18 @@ async def get_rooms_row_orm(session: AsyncSession):
     return result.scalars().all()
 
 
+async def get_rooms_floor_orm(session: AsyncSession, id_floor: int):
+    query = select(Rooms.number).where(Rooms.id_floor == id_floor)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def delete_rooms_orm(session: AsyncSession, number: int):
+    query = delete(Rooms).where(Rooms.number == number)
+    await session.execute(query)
+    await session.commit()
+
+
 #Schedule
 async def add_schedule_orm(session: AsyncSession, data: dict):
     schedule = Schedule(
@@ -66,6 +82,18 @@ async def add_schedule_orm(session: AsyncSession, data: dict):
     )
     session.add(schedule)
     await session.commit()
+
+
+async def get_schedule_orm(session: AsyncSession, date: date):
+    query = select(Schedule).where(Schedule.date==date)
+    result = await session.execute(query)
+    return result.scalar()
+
+
+async def get_schedules_orm(session: AsyncSession):
+    query = select(Schedule.date)
+    result = await session.execute(query)
+    return result.scalars().all()
 
 
 #Floors
@@ -78,13 +106,19 @@ async def add_floor_orm(session: AsyncSession, data: dict):
     await session.commit()
 
 
-async def get_ids_chat_headmen_orm(session: AsyncSession):
-    query = select(Floors.id_chat_headmen)
+async def get_id_floor_orm(session: AsyncSession, floor: int):
+    query = select(Floors.id).where(Floors.number_floor == floor)
+    result = await session.execute(query)
+    return result.scalar()
+
+
+async def get_floor_orm(session: AsyncSession):
+    query = select(Floors)
     result = await session.execute(query)
     return result.scalars().all()
 
 
-async def get_id_floor_orm(session: AsyncSession, floor: int):
-    query = select(Floors.id).where(Floors.number_floor==floor)
+async def get_id_floor_orm2(session: AsyncSession, id_chat_headmen: int):
+    query = select(Floors.id).where(Floors.id_chat_headmen == id_chat_headmen)
     result = await session.execute(query)
     return result.scalar()

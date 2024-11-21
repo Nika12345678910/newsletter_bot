@@ -10,19 +10,21 @@ from datetime import datetime
 
 class DateFilter(BaseFilter):
     async def __call__(self, message: Message):
-        test = message.text.replace("/", "")
+        test = message.text.replace("-", "")
 
-        if len(message.text.split('/'))==3 and len(test) == 8 and test.isdigit():
+        if len(message.text.split('-'))==3 and len(test) == 8 and test.isdigit():
             test1 = 0<int(test[6:])<32 and 0<int(test[4:6])<13
-            test2 = message.text[0]!='/' and message.text[-1]!='/'
-            test3 = datetime.now().year <= int(test[:4]) <= datetime.now().year+1
-            test4 = datetime.now().month <= int(test[4:6]) <= datetime.now().month+1
-            test5 = int(str(datetime.today())[8:10]) <= int(test[6:])
+            test2 = message.text[0]!='-' and message.text[-1]!='-'
+            test3 = datetime.now().year == int(test[:4])
+            test4 = datetime.now().month == int(test[4:6]) and int(str(datetime.today())[8:10]) <= int(test[6:]) < 32
+            test5 = int(test[4:6]) == datetime.now().month+1 and int(str(datetime.today())[8:10]) >= int(test[6:]) >= 1
 
-            if (test1 and test2 and test3 and test4 and test5):
-                return True
-            else:
+            if test1 and test2 and test3:
+                if test4 or test5:
+                    return True
                 return False
+            return False
+        return False
 
 
 class TimeFilter(BaseFilter):

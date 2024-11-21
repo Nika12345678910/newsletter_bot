@@ -20,3 +20,17 @@ class AddScheduleFSM(StatesGroup):
 class AddFloorFSM(StatesGroup):
     floor = State()
     numbers_rooms = State()
+
+
+class AdminStartFSM(StatesGroup):
+    registration = State()
+    add_floor = State()
+    admin_menu = State()
+
+
+class ViewScheduleFSM(StatesGroup):
+    date = State()
+
+
+class ChangeRoomsFSM(StatesGroup):
+    rooms = State()

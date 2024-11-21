@@ -4,17 +4,23 @@ from aiogram.filters import Command, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 
+from types import NoneType
+
+from datetime import date
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lexicon.lexicon_ru import LEXICON, btns, format_profile
-from FSM.fsm import UserDataFSM
+from lexicon.lexicon_ru import LEXICON, btns, format_profile, format_schedule
+from FSM.fsm import UserDataFSM, ViewScheduleFSM
 from database.query_orm import (add_user_orm,
                                 get_user_orm,
                                 get_rooms_orm,
                                 get_room_orm,
-                                get_rooms_row_orm)
+                                get_rooms_row_orm,
+                                get_schedule_orm,
+                                get_schedules_orm)
 from keyboard.inline import get_callback_btns
-from filter.filter import NameFilter, RoomFilter
+from filter.filter import NameFilter, RoomFilter, DateFilter
 
 
 user_router = Router()
@@ -100,11 +106,48 @@ async def profile(callback: CallbackQuery, session: AsyncSession):
     user_data = await get_user_orm(session, int(callback.from_user.id))
     room = await get_room_orm(session, user_data.id_room)
     profile = format_profile(user_data.first_name, user_data.last_name, room.number)
-    await callback.message.answer(text=profile)
+    await callback.message.answer(text=profile,
+                                  reply_markup=get_callback_btns(btns=btns["main_menu"]))
 
 
 #Просмотр расписания
-@user_router.callback_query(F.data == "view schedule")
-async def view_schedule(callback: CallbackQuery, session: AsyncSession):
-    await callback.message.answer(text=LEXICON["view_schedule"])
+@user_router.callback_query(F.data == "view schedule", StateFilter(default_state))
+async def view_schedule(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
+    dates = [str(date) for date in await get_schedules_orm(session)]
+
+    await callback.message.answer(text=f'{LEXICON["view_schedule"]}: {", ".join(dates)}',
+                                  reply_markup=get_callback_btns(btns=btns["main_menu"]))
+    await state.set_state(ViewScheduleFSM.date)
+    await callback.answer()
+
+
+@user_router.message(ViewScheduleFSM.date, DateFilter())
+async def chande_date_schedule(message: Message, session: AsyncSession, state: FSMContext):
+    cleaning_date = date(int(message.text[:4]), int(message.text[5:7]), int(message.text[8:10]))
+    data_schedule = await get_schedule_orm(session, cleaning_date)
+
+    if type(data_schedule) == NoneType:
+        await message.answer(text=LEXICON["not data"],
+                             reply_markup=get_callback_btns(btns=btns["main_menu"]))
+        await state.clear()
+        return
+
+    room = await get_room_orm(session, data_schedule.id_room)
+    schedule = format_schedule(data_schedule.date, data_schedule.time, room.number)
+    await message.answer(text=schedule,
+                         reply_markup=get_callback_btns(btns=btns["main_menu"]))
+    await state.clear()
+
+
+@user_router.message(ViewScheduleFSM.date)
+async def chande_date_schedule(message: Message, session: AsyncSession):
+    dates = [str(date) for date in await get_schedules_orm(session)]
+    await message.answer(text=f'{LEXICON["view_schedule"]}: {", ".join(dates)}')
+
+
+#Вывод главного меню
+@user_router.callback_query(F.data == "main_menu")
+async def output_main_menu(callback: CallbackQuery):
+    await callback.message.answer(text=LEXICON["possibilities_user"],
+                                  reply_markup=get_callback_btns(btns=btns["possibilities_user"]))
     await callback.answer()

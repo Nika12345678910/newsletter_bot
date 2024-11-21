@@ -1,7 +1,12 @@
-from datetime import datetime
+s = '100,101,102,103,104,105,106'
+s2 = '101,102,103,105,106,107'
 
-s = "2007-12-12"
-print(datetime.now().year, datetime.now().month)
-print(datetime.now().year >= int(s[:4]))
-print(datetime.now().month >= int(s[4:6]))
-print(datetime.today(), str(datetime.today())[8:10])
+s = s.split(',')
+s2 = s2.split(',')
+
+#Элем которых нет в новом словареб но есть в старом
+for room in s2:
+    if s2 not in s:
+        print(s2)
+
+#Элем которых нет в старом словаре, но есть в новом

@@ -31,7 +31,7 @@ class Schedule(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     time: Mapped[Time] = mapped_column(Time, nullable=False)
-    date: Mapped[Date] = mapped_column(Date, nullable=False)
+    date: Mapped[Date] = mapped_column(Date, nullable=False, unique=True)
     id_room: Mapped[int] = mapped_column(nullable=False)
 
 
