@@ -8,11 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from datetime import time, date
 
-from lexicon.lexicon_ru import LEXICON, btns, format_schedule, check_schedule_kb
+from lexicon.lexicon_ru import (LEXICON, btns,
+                                format_schedule,
+                                check_schedule_kb,
+                                confirm_schedule)
 from keyboard.reply import create_keyboard
 from keyboard.inline import get_callback_btns
 from FSM.fsm import AddScheduleFSM, AddFloorFSM, ChangeRoomsFSM
-from filter.filter import DateFilter, TimeFilter, NumbersRoomsFilter, FloorFilter
+from filter.filter import DateFilter, TimeFilter, NumbersRoomsFilter
 from database.query_orm import (get_rooms_orm,
                                 add_schedule_orm,
                                 get_room_orm,
@@ -53,7 +56,7 @@ async def command_admin(message: Message, session: AsyncSession, state: FSMConte
 
 
 #Добавление этажа и комнат
-@admin_router.message(AddFloorFSM.floor, F.text.isdigit(), FloorFilter())
+@admin_router.message(AddFloorFSM.floor, F.text.isdigit())
 async def add_floor(message: Message, state: FSMContext):
     await state.update_data(floor=int(message.text))
     await message.answer(text=LEXICON["add_numbers_rooms"])
@@ -75,7 +78,7 @@ async def add_numbers_rooms(message: Message, state: FSMContext, session: AsyncS
         await add_floor_orm(session, data_floor_table)
         id_floor = await get_id_floor_orm(session, int(data["floor"]))
     except Exception as e:
-        await message.answer(f"Ошибка: \n{str(e)}\nЧто-то пошло не так при добавлении новых комнат в БД",
+        await message.answer(f"Ошибка: \n{str(e)}\nЧто-то пошло не так при добавлении нового этажа в БД",
                              reply_markup=admin_kb)
 
     try:
@@ -158,10 +161,6 @@ async def add_date(message: Message, state: FSMContext, session: AsyncSession):
     soo = message.text.split('-')
     var_date = date(int(soo[0]), int(soo[1]), int(soo[2]))
 
-    if var_date in await get_dates_schedule_orm(session):
-        await message.answer(text=LEXICON["date already exists"])
-        return
-
     await state.update_data(date=var_date)
     await message.answer(text=LEXICON["time"],
                          reply_markup=get_callback_btns(btns=btns["cancel"]))
@@ -216,11 +215,11 @@ async def newsletter_schedule(session: AsyncSession,
                               data_ids_floors: dict,
                               data_rooms: dict,
                               schedule: str,
-                              cleaning_room: str) -> None:
+                              cleaning_room: str,
+                              cleaning_date: str) -> None:
     id_chats = await get_id_chats_orm(session)
     cleaning_id_room = data_rooms[cleaning_room][0] #id комнаты, которая убирается
     id_floor = data_rooms[cleaning_room][1] #id этажа, жителям которого приходит рассылка
-
 
     for id_chat in id_chats:
         user_data = await get_user_orm(session, id_chat)
@@ -228,7 +227,8 @@ async def newsletter_schedule(session: AsyncSession,
         id_floor_user = data_ids_floors[str(id_room_user)]
 
         if id_floor_user == id_floor:
-            await bot.send_message(id_chat, text=schedule)
+            await bot.send_message(id_chat, text=schedule,
+                                   reply_markup=get_callback_btns(btns=confirm_schedule(cleaning_date, id_chat, id_floor_user)))
 
 
 async def data_unpacking(data: list) -> tuple:
@@ -273,7 +273,8 @@ async def public_schedule(callback: CallbackQuery, session: AsyncSession, bot: B
                                   data_rooms=data_rooms,
                                   data_ids_floors=data_ids_floors,
                                   schedule=schedule,
-                                  cleaning_room=cleaning_room)
+                                  cleaning_room=cleaning_room,
+                                  cleaning_date=cleaning_date)
 
         await callback.message.answer(text=f'{LEXICON["public_schedule"]}',
                                       reply_markup=admin_kb)
@@ -282,7 +283,6 @@ async def public_schedule(callback: CallbackQuery, session: AsyncSession, bot: B
         await callback.message.answer(f"Ошибка: \n{str(e)}\nЧто-то пошло не так во время рассылки расписания жителям этажа",
                                       reply_markup=admin_kb)
         await callback.answer()
-
 
 
 #Изменение расписания

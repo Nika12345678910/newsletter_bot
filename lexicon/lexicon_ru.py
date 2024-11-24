@@ -28,8 +28,7 @@ LEXICON = {
     "view_schedule": "📆Укажите дату, на которую вы ходите посмотреть расписание",
     "change_rooms": "Ранее вы добавили такие комнаты",
     "not date": "Расписание на эту дату ещё не добавили...",
-    "not rooms": "Комнаты ещё не зарегестрированны админом",
-    "date already exists": "Расписание на эту дату уже создано"
+    "not rooms": "Комнаты ещё не зарегестрированны админом"
 }
 
 
@@ -60,3 +59,14 @@ btns = {
 def check_schedule_kb(data: dict):
     return {"Подтвердить": f"confirm_{data['date']}_{data['time']}_{data['room']}",
             "Изменить": f"change_{data['date']}_{data['time']}_{data['room']}"}
+
+
+def confirm_schedule(date: str, id_chat: int, id_floor: int):
+    return {"Подтвердить, что увидел": f"confirm_schedule_{date}_{str(id_chat)}_{str(id_floor)}"}
+
+
+def format_user_schedule_confirmation(first_name: str,
+                                      last_name: str,
+                                      room: int,
+                                      date: str):
+    return f"{first_name} {last_name} из комнаты {room} подтвердил расписани на {date}"

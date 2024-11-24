@@ -74,10 +74,3 @@ class RoomFilter(BaseFilter):
                                  reply_markup=get_callback_btns(btns=btns["registation"]))
             await state.clear()
         return
-
-
-class FloorFilter(BaseFilter):
-    async def __call__(self, message: Message, session: AsyncSession):
-        if int(message.text) in await get_floor_orm(session):
-            return False
-        return True

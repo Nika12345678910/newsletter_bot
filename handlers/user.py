@@ -1,4 +1,4 @@
-from aiogram import F, Router
+from aiogram import F, Router, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
@@ -10,7 +10,10 @@ from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lexicon.lexicon_ru import LEXICON, btns, format_profile, format_schedule
+from lexicon.lexicon_ru import (LEXICON, btns,
+                                format_profile,
+                                format_schedule,
+                                format_user_schedule_confirmation)
 from FSM.fsm import UserDataFSM, ViewScheduleFSM
 from database.query_orm import (add_user_orm,
                                 get_user_orm,
@@ -18,7 +21,9 @@ from database.query_orm import (add_user_orm,
                                 get_room_orm,
                                 get_rooms_row_orm,
                                 get_schedule_orm,
-                                get_schedules_orm)
+                                get_schedules_orm,
+                                get_floor_orm,
+                                get_id_chats_orm)
 from keyboard.inline import get_callback_btns
 from filter.filter import NameFilter, RoomFilter, DateFilter
 
@@ -29,7 +34,7 @@ user_router = Router()
 @user_router.message(CommandStart())
 async def command_start(message: Message, session: AsyncSession):
     await message.answer(f'{LEXICON["start"]}, {message.from_user.first_name}')
-    if await get_user_orm(session, int(message.from_user.id)):
+    if message.from_user.id in await get_id_chats_orm(session):
         await message.answer(text=LEXICON["possibilities_user"],
                              reply_markup=get_callback_btns(btns=btns["possibilities_user"]))
         return
@@ -70,7 +75,6 @@ async def add_room(message: Message, session: AsyncSession, state: FSMContext):
     rooms = {str(room.number): room.id for room in await get_rooms_row_orm(session)}
     data["id_room"] = rooms[message.text]
     data["id_chat"] = message.from_user.id
-
     try:
         await add_user_orm(session, data)
         await message.answer(text=LEXICON["registration_close"])
@@ -151,3 +155,27 @@ async def output_main_menu(callback: CallbackQuery):
     await callback.message.answer(text=LEXICON["possibilities_user"],
                                   reply_markup=get_callback_btns(btns=btns["possibilities_user"]))
     await callback.answer()
+
+
+#Подтверждение расписания пользователем
+@user_router.callback_query(F.data.startswith("confirm_schedule_"))
+async def process_confirm_schedule(callback: CallbackQuery, session: AsyncSession, bot: Bot):
+    input_data = callback.data.split('_')
+    date = input_data[-3]
+    id_chat_user = int(input_data[-2])
+    id_floor_user = input_data[-1]
+
+    #Найти: имя, фамилию и комнату подтвердившего юзера
+    #Найти ид чата старосты этажа
+
+    data_user = await get_user_orm(session, id_chat_user)
+    room_obj_user = await get_room_orm(session, data_user.id_room)
+    ids_chats_headmen = {str(floor_obj.id): floor_obj.id_chat_headmen for floor_obj in await get_floor_orm(session)}
+    id_chat_headmen = ids_chats_headmen[id_floor_user]
+
+    report = format_user_schedule_confirmation(data_user.first_name,
+                                               data_user.last_name,
+                                               room_obj_user.number,
+                                               date)
+
+    await bot.send_message(chat_id=id_chat_headmen, text=report)

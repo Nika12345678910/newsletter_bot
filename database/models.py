@@ -1,5 +1,6 @@
 from sqlalchemy import DateTime, ForeignKey, String, func, Date, Time
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import BigInteger
 
 
 class Base(DeclarativeBase):
@@ -20,7 +21,7 @@ class Users(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    id_chat: Mapped[int] = mapped_column(unique=True, nullable=False)
+    id_chat: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     first_name: Mapped[str] = mapped_column(String(10))
     last_name: Mapped[str] = mapped_column(String(10))
     id_room: Mapped[int] = mapped_column(nullable=False)
@@ -31,7 +32,7 @@ class Schedule(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     time: Mapped[Time] = mapped_column(Time, nullable=False)
-    date: Mapped[Date] = mapped_column(Date, nullable=False, unique=True)
+    date: Mapped[Date] = mapped_column(Date, nullable=False)
     id_room: Mapped[int] = mapped_column(nullable=False)
 
 
