@@ -1,7 +1,12 @@
 from aiogram.filters import BaseFilter
 from aiogram.types import Message
+from aiogram.fsm.context import FSMContext
 
-from database.query_orm import get_rooms_orm
+from types import NoneType
+
+from database.query_orm import get_rooms_orm, get_floor_orm
+from lexicon.lexicon_ru import LEXICON, btns
+from keyboard.inline import get_callback_btns
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,8 +65,19 @@ class NumbersRoomsFilter(BaseFilter):
 
 
 class RoomFilter(BaseFilter):
-    async def __call__(self, message: Message, session: AsyncSession):
+    async def __call__(self, message: Message, session: AsyncSession, state: FSMContext):
         rooms = await get_rooms_orm(session)
         if message.text in rooms:
             return True
-        return False
+        if len(rooms) == 0:
+            await message.answer(text=LEXICON["not rooms"],
+                                 reply_markup=get_callback_btns(btns=btns["registation"]))
+            await state.clear()
+        return
+
+
+class FloorFilter(BaseFilter):
+    async def __call__(self, message: Message, session: AsyncSession):
+        if int(message.text) in await get_floor_orm(session):
+            return False
+        return True

@@ -66,7 +66,7 @@ async def add_room(message: Message, session: AsyncSession, state: FSMContext):
     await state.update_data(room=int(message.text))
 
     data = await state.get_data()
-    print(await get_rooms_orm(session))
+
     rooms = {str(room.number): room.id for room in await get_rooms_row_orm(session)}
     data["id_room"] = rooms[message.text]
     data["id_chat"] = message.from_user.id
@@ -127,7 +127,7 @@ async def chande_date_schedule(message: Message, session: AsyncSession, state: F
     data_schedule = await get_schedule_orm(session, cleaning_date)
 
     if type(data_schedule) == NoneType:
-        await message.answer(text=LEXICON["not data"],
+        await message.answer(text=LEXICON["not date"],
                              reply_markup=get_callback_btns(btns=btns["main_menu"]))
         await state.clear()
         return

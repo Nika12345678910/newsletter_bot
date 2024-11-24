@@ -12,7 +12,7 @@ from lexicon.lexicon_ru import LEXICON, btns, format_schedule, check_schedule_kb
 from keyboard.reply import create_keyboard
 from keyboard.inline import get_callback_btns
 from FSM.fsm import AddScheduleFSM, AddFloorFSM, ChangeRoomsFSM
-from filter.filter import DateFilter, TimeFilter, NumbersRoomsFilter
+from filter.filter import DateFilter, TimeFilter, NumbersRoomsFilter, FloorFilter
 from database.query_orm import (get_rooms_orm,
                                 add_schedule_orm,
                                 get_room_orm,
@@ -25,7 +25,8 @@ from database.query_orm import (get_rooms_orm,
                                 get_floor_orm,
                                 get_rooms_floor_orm,
                                 get_id_floor_orm2,
-                                delete_rooms_orm)
+                                delete_rooms_orm,
+                                get_dates_schedule_orm)
 
 
 admin_router = Router()
@@ -52,7 +53,7 @@ async def command_admin(message: Message, session: AsyncSession, state: FSMConte
 
 
 #Добавление этажа и комнат
-@admin_router.message(AddFloorFSM.floor, F.text.isdigit())
+@admin_router.message(AddFloorFSM.floor, F.text.isdigit(), FloorFilter())
 async def add_floor(message: Message, state: FSMContext):
     await state.update_data(floor=int(message.text))
     await message.answer(text=LEXICON["add_numbers_rooms"])
@@ -69,13 +70,22 @@ async def add_numbers_rooms(message: Message, state: FSMContext, session: AsyncS
         "number_floor": int(data["floor"]),
         "id_chat_headmen": message.from_user.id
     }
-    await add_floor_orm(session, data_floor_table)
 
-    id_floor = await get_id_floor_orm(session, int(data["floor"]))
-    await add_rooms_orm(session, id_floor, data["numbers_rooms"],)
+    try:
+        await add_floor_orm(session, data_floor_table)
+        id_floor = await get_id_floor_orm(session, int(data["floor"]))
+    except Exception as e:
+        await message.answer(f"Ошибка: \n{str(e)}\nЧто-то пошло не так при добавлении новых комнат в БД",
+                             reply_markup=admin_kb)
 
-    await state.clear()
-    await message.answer(text=LEXICON["add_data_headmen"])
+    try:
+        await add_rooms_orm(session, id_floor, data["numbers_rooms"],)
+
+        await state.clear()
+        await message.answer(text=LEXICON["add_data_headmen"])
+    except Exception as e:
+        await message.answer(f"Ошибка: \n{str(e)}\nЧто-то пошло не так при добавлении новых комнат в БД",
+                             reply_markup=admin_kb)
 
 
 @admin_router.message(AddFloorFSM.floor)
@@ -94,9 +104,9 @@ async def change_rooms(message: Message, session: AsyncSession, state: FSMContex
     id_floor = await get_id_floor_orm2(session, message.from_user.id)
     rooms_on_floor = await get_rooms_floor_orm(session, id_floor)
 
-    await message.answer(text=LEXICON["change_rooms"],
+    await message.answer(text=LEXICON["add_numbers_rooms"],
                          reply_markup=ReplyKeyboardRemove())
-    await message.answer(text=", ".join(rooms_on_floor),
+    await message.answer(text=f'{LEXICON["change_rooms"]}: {", ".join(rooms_on_floor)}',
                          reply_markup=get_callback_btns(btns=btns["cancel"]))
     await state.set_state(ChangeRoomsFSM.rooms)
 
@@ -110,7 +120,7 @@ async def change_rooms2(message: Message, session: AsyncSession, state: FSMConte
 
     #комнаты которые есть в новом но нет в старом (добавить)
     dif1 = set(new_rooms) - set(old_rooms)
-    rooms_to_add = [room for room in dif1]
+    rooms_to_add = [str(room) for room in dif1]
     try:
         await add_rooms_orm(session, id_floor, rooms_to_add)
     except Exception as e:
@@ -129,6 +139,9 @@ async def change_rooms2(message: Message, session: AsyncSession, state: FSMConte
     await message.answer(text=LEXICON["add_data_headmen"],
                          reply_markup=admin_kb)
 
+    now_rooms = await get_rooms_floor_orm(session, id_floor)
+    await message.answer(text=f"Сейчас на этаже зарегестрированны такие комнаты: {', '.join(now_rooms)}")
+
 
 #Создание расписания
 @admin_router.message(F.text == "Создание расписания", StateFilter(default_state))
@@ -141,9 +154,13 @@ async def create_schedule(message: Message, state: FSMContext):
 
 
 @admin_router.message(DateFilter(), AddScheduleFSM.date)
-async def add_date(message: Message, state: FSMContext):
+async def add_date(message: Message, state: FSMContext, session: AsyncSession):
     soo = message.text.split('-')
     var_date = date(int(soo[0]), int(soo[1]), int(soo[2]))
+
+    if var_date in await get_dates_schedule_orm(session):
+        await message.answer(text=LEXICON["date already exists"])
+        return
 
     await state.update_data(date=var_date)
     await message.answer(text=LEXICON["time"],
