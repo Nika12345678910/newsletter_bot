@@ -1,4 +1,5 @@
-библиотеки: aiogram3, sqlalchemy orm, asyncpg, environs, asyncio, postgresql
+библиотеки: aiogram3, sqlalchemy orm, asyncpg, environs, asyncio
+БД: postgresql
 
 ТЗ по проекту:
 1. Админ - староста этажа может создавать и рассылать жителям этажа расписание уборки на кухне
